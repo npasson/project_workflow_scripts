@@ -1,0 +1,207 @@
+image: node:8
+
+# define variables
+variables:
+  PROJECT_ID: ""
+  DEMO_SERVER: ""
+  DEMO_USE_SFTP: ""
+  DEMO_FTP_USER: ""
+  DEMO_FTP_PASS: ""
+  DEMO_SFTP_USER: ""
+  DEMO_CURRENT_STATUS: ""
+  DEMO_TRANSITION_ID: ""
+  LIVE_USE_SFTP: ""
+  LIVE_FTP_USER: ""
+  LIVE_FTP_PASS: ""
+  LIVE_SFTP_USER: ""
+  LIVE_SERVER: ""
+  LIVE_CURRENT_STATUS: ""
+  LIVE_TRANSITION_ID: ""
+  JIRA_URL: ""
+  JIRA_USER: ""
+  JIRA_PASS: ""
+
+
+##
+## Setup SSH to use with SFTP sync
+##
+before_script:
+  - if [[ ! -z "${SSH_PRIVATE_KEY}" ]]; then
+##      if SSH key is given, use it
+  -     'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+  -     eval $(ssh-agent -s)
+  -     echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+  -     mkdir -p ~/.ssh
+  -     chmod 700 ~/.ssh
+  - else
+##      else error if we're supposed to use SSH
+  -     if [[ "${DEMO_USE_SFTP}" == 'true' || "${LIVE_USE_SFTP}" == 'true' ]]; then
+  -         echo 'SFTP is supposed to be used, but the private key is empty!'
+  -     fi
+  - fi
+##  if any of the vital variables are empty, error out
+  - if [[ "${JIRA_URL}" == "" ]]; then
+  -     echo "JIRA URL must not be empty!"
+  -     exit 1
+  - fi
+  - if [[ "${JIRA_USER}" == "" ]]; then
+  -     echo "JIRA username must not be empty!"
+  -     exit 1
+  - fi
+  - if [[ "${JIRA_PASS}" == "" ]]; then
+  -     echo "JIRA password must not be empty!"
+  -     exit 1
+  - fi
+
+stages:
+  - build
+  - deploy
+  - transition
+
+##
+## Build PCSS
+##
+postcss:
+  stage: build
+  script:
+##    install PostCSS and compile the CSS
+    - npm i -g postcss-cli
+    - npm install cssnano
+    - cat ./src/css/* | postcss --no-map > ./build/src/css/main.css
+  artifacts:
+    paths:
+##      make sure we transfer the CSS file over
+      - build/src/css/main.css
+    expire_in: 1 day
+
+##
+## Build JavaScript
+##
+uglifyjs:
+  stage: build
+  script:
+    - echo "UglifyJS is not yet implemented. This stage left blank on purpose."
+  allow_failure: true
+
+##
+## Deploy to demo if branch is 'dev'
+##
+deploydemo:
+  stage: deploy
+  only:
+    - dev
+  dependencies:
+    - postcss
+    - uglifyjs
+  script:
+##    remove a line from the sources list
+##    not relevant to the script functionality, but it circumvents an error
+    - sed -i '/jessie-updates/d' /etc/apt/sources.list
+    - if [[ "${DEMO_USE_SFTP}" == "false" ]]; then
+##        use NCFTPPUT if using FTP
+    -     apt-get update -yqq && apt-get install -y -qq ncftp;
+    -     chmod -R 777 build
+    -     ncftpput -R -v -u ${DEMO_FTP_USER} -p ${DEMO_FTP_PASS} ${DEMO_SERVER} /html ./build/*
+    - else
+##        use RSYNC if using SFTP
+    -     apt-get update -yqq && apt-get install -y -qq ssh rsync
+    -     rsync -rq --exclude="*.map" ./build/* ${DEMO_SFTP_USER}@${DEMO_SERVER}:/html/
+    - fi
+  environment:
+    name: demo
+    url: http://localhost/
+
+##
+## Deploy to live if branch is 'master'
+##
+deploylive:
+  stage: deploy
+  only:
+    - master
+  dependencies:
+    - postcss
+    - uglifyjs
+  script:
+##    remove a line from the sources list
+##    not relevant to the script functionality, but it circumvents an error
+    - sed -i '/jessie-updates/d' /etc/apt/sources.list
+    - if [[ "${LIVE_USE_SFTP}" == "false" ]]; then
+##        use NCFTPPUT if using FTP
+    -     apt-get update -yqq && apt-get install -y -qq ncftp;
+    -     chmod -R 777 build
+    -     ncftpput -R -v -u ${LIVE_FTP_USER} -p ${LIVE_FTP_PASS} ${LIVE_SERVER} /html ./build/*
+    - else
+##        use RSYNC if using SFTP
+    -     apt-get update -yqq && apt-get install -y -qq ssh rsync
+    -     rsync -rq --exclude="*.map" ./build/* ${LIVE_SFTP_USER}@${LIVE_SERVER}:/html/
+    - fi
+  environment:
+    name: live
+    url: http://localhost/
+
+##
+## Move JIRA ticket to 'Live on Demo' if branch is 'dev' and upload succeeded
+##
+jiratodemo:
+  stage: transition
+  only:
+    - dev
+  dependencies:
+    - deploydemo
+  script:
+##    download JQ for JSON parsing in answers
+    - echo 'Downloading JQ...'
+    - curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > jq
+##    make it executable, and else, because why not
+    - echo 'Setting permissions...'
+    - chmod 777 ./jq
+##    query JIRA for:
+##    * Project == project_id
+##    * Status == demo_current_status
+    - echo 'Getting results...'
+    - |
+      curl --user "${JIRA_USER}:${JIRA_PASS}" "${JIRA_URL}/rest/api/2/search?jql=status=${DEMO_CURRENT_STATUS}%20and%20project=${PROJECT_ID}&fields=key&maxResults=100" > results.json
+    - echo 'Got results.'
+##    get the total number of results for the FOR loop
+    - echo "Found $(cat results.json | ./jq -r '.total') tickets to be moved."
+    - for (( VAR=0; VAR<$(cat results.json | ./jq -r '.total'); ++VAR )); do
+    - issue_key=$(cat results.json | ./jq -r ".issues | .[${VAR}] | .key")
+    - echo "Issue key is ${issue_key}"
+##    transition all JIRA issues from the status to the next one, using auth and all that stuff
+    - |
+      curl --header "Content-Type: application/json" --request POST --user "${JIRA_USER}:${JIRA_PASS}" --data "{\"transition\": {\"id\": \"${DEMO_TRANSITION_ID}\"}}" ${JIRA_URL}/rest/api/2/issue/${issue_key}/transitions?expand=transitions.fields
+    - done
+
+##
+## Move JIRA ticket to 'Live on Demo' if branch is 'dev' and upload succeeded
+##
+jiratolive:
+  stage: transition
+  only:
+    - master
+  dependencies:
+    - deploylive
+  script:
+##    download JQ for JSON parsing in answers
+    - echo 'Downloading JQ...'
+    - curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > jq
+##    make it executable, and else, because why not
+    - echo 'Setting permissions...'
+    - chmod 777 ./jq
+##    query JIRA for:
+##    * Project == project_id
+##    * Status == demo_current_status
+    - echo 'Getting results...'
+    - |
+      curl --user "${JIRA_USER}:${JIRA_PASS}" "${JIRA_URL}/rest/api/2/search?jql=status=${LIVE_CURRENT_STATUS}%20and%20project=${PROJECT_ID}&fields=key&maxResults=100" > results.json
+    - echo 'Got results.'
+##    get the total number of results for the FOR loop
+    - echo "Found $(cat results.json | ./jq -r '.total') tickets to be moved."
+    - for (( VAR=0; VAR<$(cat results.json | ./jq -r '.total'); ++VAR )); do
+##    transition all JIRA issues from the status to the next one, using auth and all that stuff
+    - issue_key=$(cat results.json | ./jq -r ".issues | .[${VAR}] | .key")
+    - echo "Issue key is ${issue_key}"
+    - |
+      curl --header "Content-Type: application/json" --request POST --user "${JIRA_USER}:${JIRA_PASS}" --data "{\"transition\": {\"id\": \"${LIVE_TRANSITION_ID}\"}}" ${JIRA_URL}/rest/api/2/issue/${issue_key}/transitions?expand=transitions.fields;
+    - done
+    
