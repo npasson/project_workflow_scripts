@@ -25,10 +25,22 @@ require_once '../vars.php';
 
 // ==================================================== //
 
+/**
+ * Logs a message to the given file. Ends the message with a newline.
+ *
+ * @param string $msg The message to log.
+ */
 function _log(string $msg): void {
 	file_put_contents('crucible.log', $msg . "\n", FILE_APPEND);
 }
 
+/**
+ * Converts anything (usually an object) to an array.
+ *
+ * @param $obj mixed An object or an array, or anything. It just casts, make sure it's able to.
+ *
+ * @return array The given object, converted to an array.
+ */
 function object_to_array($obj): array {
 	$array = (array)$obj;
 	foreach ($array as $sub => $attribute) {
@@ -42,6 +54,13 @@ function object_to_array($obj): array {
 	return $array;
 }
 
+/**
+ * Gets the URL of the repository, given a project name (usually the JIRA key)
+ *
+ * @param string $name The Crucible project name. See {@link getRepoName()}
+ *
+ * @return string The Repo URL (really just the repo name, but it's a locator anyway)
+ */
 function getRepoUrl(string $name): string {
 	$repoData = file_get_contents(CRUCIBLE_URL . "/rest-service/repositories-v1?name=$name");
 	_log('Received answer getting repository names:');
@@ -58,6 +77,11 @@ function getRepoUrl(string $name): string {
 	return $repoUrl;
 }
 
+/**
+ * Gets the repository name as saved by Crucible.
+ *
+ * @return string The repo name.
+ */
 function getRepoName(): string {
 	$decoded = json_decode(POST_PAYLOAD, true);
 	/*
@@ -73,18 +97,36 @@ function getRepoName(): string {
 	return $decoded['repository']['displayName'];
 }
 
+/**
+ * Gets the name of the branch that was changed.
+ *
+ * @return string The name of the branch.
+ */
 function getBranchName(): string {
 	$decoded = json_decode(POST_PAYLOAD, true);
 	return $decoded['changeset']['branches'][0];
 }
 
+/**
+ * Gets the comment of the commit.
+ *
+ * @return string The comment.
+ */
 function getComment(): string {
 	$decoded = json_decode(POST_PAYLOAD, true);
 	return $decoded['changeset']['comment'];
 }
 
-function create_mr(string $project, string $from, string $to): void {
-	$url_prefix = GITLAB_URL . '/api/v4/projects/' . urlencode($project) . '/merge_requests?private_token=';
+/**
+ * Creates a merge request in the given project, from the branch $from to the branch $to.
+ *
+ * @param string $repo_key The key of the affected repository. See {@link get_repo_key()} and
+ *                         {@link REPOSITORY_GROUP_PREFIX}.
+ * @param string $from The source branch to merge from.
+ * @param string $to The target branch to merge to.
+ */
+function create_mr(string $repo_key, string $from, string $to): void {
+	$url_prefix = GITLAB_URL . '/api/v4/projects/' . urlencode($repo_key) . '/merge_requests?private_token=';
 	$url_suffix =
 		"&source_branch=$from" .
 		"&target_branch=$to" .

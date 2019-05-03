@@ -25,10 +25,22 @@ require_once '../vars.php';
 
 // ==================================================== //
 
+/**
+ * Logs a message to the given file. Ends the message with a newline.
+ *
+ * @param string $msg The message to log.
+ */
 function _log(string $msg): void {
 	file_put_contents('gitlab-mr.log', $msg . "\n", FILE_APPEND);
 }
 
+/**
+ * Converts anything (usually an object) to an array.
+ *
+ * @param $obj mixed An object or an array, or anything. It just casts, make sure it's able to.
+ *
+ * @return array The given object, converted to an array.
+ */
 function object_to_array($obj): array {
 	$array = (array)$obj;
 	foreach ($array as $sub => $attribute) {
@@ -42,20 +54,36 @@ function object_to_array($obj): array {
 	return $array;
 }
 
+/**
+ * Gets the issue key (e.g. TEST-3) from the payload.
+ *
+ * @return string The issue key.
+ */
 function get_issue_id(): string {
 	$branch_name = json_decode(POST_PAYLOAD, true)['object_attributes']['source_branch'];
 	return preg_filter(REGEX_ISSUE_ID_FROM_BRANCH, '$1', $branch_name);
 }
 
+/**
+ * Gets the included command (e.g. #comment) from the commit message.
+ *
+ * @return string The command.
+ */
 function get_issue_command(): string {
 	$branch_name = json_decode(POST_PAYLOAD, true)['object_attributes']['last_commit']['message'];
 	return preg_filter(REGEX_COMMAND_FROM_COMMENT, '$1', $branch_name);
 }
 
+/**
+ * @return string The target branch of the merge action.
+ */
 function get_target_branch(): string {
 	return json_decode(POST_PAYLOAD, true)['object_attributes']['target_branch'];
 }
 
+/**
+ * @return bool `true` if the merge action was "merge succeeded"
+ */
 function is_changed_to_merged(): bool {
 	return (
 		(json_decode(POST_PAYLOAD, true)['changes']['state']['current'] ?? '')
@@ -63,6 +91,14 @@ function is_changed_to_merged(): bool {
 	);
 }
 
+/**
+ * Invokes a transition on a JIRA ticket.
+ *
+ * @param string $issue_id The ID of the issue, e.g. TEST-3
+ * @param int $transition_id The transition ID to invoke.
+ *
+ * @return string
+ */
 function do_jira_transition(string $issue_id, int $transition_id): string {
 	_log("Attempting to invoke transition $transition_id on issue $issue_id...");
 	$ch = curl_init();
@@ -126,7 +162,6 @@ if (is_changed_to_merged()) {
 	if (get_target_branch() === 'dev') {
 		do_jira_transition(get_issue_id(), JIRA_TRANSITION_TO_ACCEPTED_ID);
 	}
-
 
 }
 
