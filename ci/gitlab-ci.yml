@@ -58,6 +58,7 @@ before_script:
 ##      else error if we're supposed to use SSH
   -     if [[ "${DEMO_USE_SFTP}" == 'true' || "${LIVE_USE_SFTP}" == 'true' ]]; then
   -         echo 'SFTP is supposed to be used, but the private key is empty!'
+  -         exit 1
   -     fi
   - fi
 ##  if any of the vital variables are empty, error out
