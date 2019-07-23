@@ -232,7 +232,7 @@ $project_key = get_project_key();
 _log('Project key is ' . $project_key);
 
 // get repository URL from Crucible
-$repo_key = get_repo_key('APPL');
+$repo_key = get_repo_key($project_key);
 _log('Repo key is ' . $repo_key);
 
 // get branch name from Gitlab

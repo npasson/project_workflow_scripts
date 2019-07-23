@@ -161,7 +161,7 @@ $project_key = get_project_key();
 _log('Project key is ' . $project_key);
 
 // get repository URL from Crucible
-$repo_key = get_repo_key('APPL');
+$repo_key = get_repo_key($project_key);
 _log('Repo key is ' . $repo_key);
 
 // create branch
@@ -172,4 +172,5 @@ $branch_name = get_branch_id($repo_key, $issue_key);
 _log('Branch name is ' . $branch_name);
 
 // query Gitlab to merge into master
-merge($repo_key, $branch_name, 'master');
+// FIXME why is this here?
+// merge($repo_key, $branch_name, 'master');
