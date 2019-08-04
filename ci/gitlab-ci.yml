@@ -49,18 +49,26 @@ variables:
 before_script:
   - if [[ ! -z "${SSH_PRIVATE_KEY}" ]]; then
 ##      if SSH key is given, use it
+##      first, install openssh-client to use SSH
   -     'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+##      start the SSH agent
   -     eval $(ssh-agent -s)
+##      add our private key to the system
   -     echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+##      create and change permissions of the .ssh directory
   -     mkdir -p ~/.ssh
   -     chmod 700 ~/.ssh
   - else
-##      else error if we're supposed to use SSH
+##      if the SSK key is empty, but user has indicated that they want to use SSH, error out
   -     if [[ "${DEMO_USE_SFTP}" == 'true' || "${LIVE_USE_SFTP}" == 'true' ]]; then
   -         echo 'SFTP is supposed to be used, but the private key is empty!'
+  -         exit 1
   -     fi
   - fi
 ##  if any of the vital variables are empty, error out
+##  vital variables are:
+##  JIRA_URL, JIRA_USER, JIRA_PASS - to connect to JIRA
+##  TODO: See issue #1, change from basic auth
   - if [[ "${JIRA_URL}" == "" ]]; then
   -     echo "JIRA URL must not be empty!"
   -     exit 1
@@ -74,9 +82,23 @@ before_script:
   -     exit 1
   - fi
 
+## If everything goes well, the execution is as follows:
+## 1. postcss & uglifyjs
+##    Compile PostCSS files and minify JavaScript files
+##
+## 2. deploydemo/deploylive, depending on updated branch
+##    Upload the /build folder to the respective server
+##
+## 3. jiratodemo/jiratolive
+##    Move all tickets currently in "to be uploaded" state
+##    to the respective "Live" or "Live on demo" state
+
 stages:
+##  postcss, uglifyjs
   - build
+##  deploydemo, deploylive
   - deploy
+##  jiratodemo, jiratolive
   - transition
 
 ##
@@ -85,9 +107,13 @@ stages:
 postcss:
   stage: build
   script:
-##    install PostCSS and compile the CSS
+##    install PostCSS from NPM
     - npm i -g postcss-cli
+##    install CSSNano to minify CSS
+##    this is a temporary solution until we can 100% rely on user's package.json
     - npm install cssnano
+##    manually compile postcss
+##    this, too, is a temporary solution, but I don't have any future-proof idea for now
     - cat ./src/css/* | postcss --no-map > ./build/src/css/main.css
   artifacts:
     paths:
@@ -101,6 +127,7 @@ postcss:
 uglifyjs:
   stage: build
   script:
+##    TODO: UglifyJS
     - echo "UglifyJS is not yet implemented. This stage left blank on purpose."
   allow_failure: true
 
@@ -110,25 +137,47 @@ uglifyjs:
 deploydemo:
   stage: deploy
   only:
+##    Only deploy to demo if "dev" branch was updated
+##    TODO: Custom branches
     - dev
   dependencies:
+##    depends on both PostCSS and UglifyJS to complete
+##    don't want to upload broken files
     - postcss
     - uglifyjs
   script:
 ##    remove a line from the sources list
 ##    not relevant to the script functionality, but it circumvents an error
     - sed -i '/jessie-updates/d' /etc/apt/sources.list
+##    if we're using FTP
     - if [[ "${DEMO_USE_SFTP}" == "false" ]]; then
-##        use NCFTPPUT if using FTP
+##        use NCFTPPUT, basically a fancy FTP upload tool
+##        update apt packages and install ncftp
     -     apt-get update -yqq && apt-get install -y -qq ncftp;
+##        just to make sure =)
     -     chmod -R 777 build
+##        upload:
+##
+##                                                               remote directory (TODO: custom dir)
+##              verbose output                                     demo server    │
+##           recursive │    demo FTP user     demo FTP password        │          │   local directory
+##                  │  │ ┌────────┴────────┐ ┌────────┴────────┐ ┌─────┴──────┐ ┌─┴─┐ ┌───┴───┐
     -     ncftpput -R -v -u ${DEMO_FTP_USER} -p ${DEMO_FTP_PASS} ${DEMO_SERVER} /html ./build/*
     - else
-##        use RSYNC if using SFTP
+##        use RSYNC for SSH
+##        update apt packages and install rsync
     -     apt-get update -yqq && apt-get install -y -qq ssh rsync
+##        upload:
+##
+##                 don't upload CSS maps                          remote directory (TODO: custom dir)
+##      suppress non-errors │                     demo SSH user                    │
+##     recursive ┐│         │      local directory      │          demo server     │
+##               ││ ┌───────┴───────┐ ┌───┴───┐ ┌───────┴───────┐ ┌─────┴──────┐ ┌─┴──┐
     -     rsync -rq --exclude="*.map" ./build/* ${DEMO_SFTP_USER}@${DEMO_SERVER}:/html/
     - fi
   environment:
+##  define environments
+##  TODO: Custom enviroments
     name: demo
     url: http://localhost/
 
@@ -138,8 +187,12 @@ deploydemo:
 deploylive:
   stage: deploy
   only:
+##    Only deploy to demo if "master" branch was updated
+##    TODO: Custom branches
     - master
   dependencies:
+##    depends on both PostCSS and UglifyJS to complete
+##    don't want to upload broken files
     - postcss
     - uglifyjs
   script:
@@ -147,16 +200,33 @@ deploylive:
 ##    not relevant to the script functionality, but it circumvents an error
     - sed -i '/jessie-updates/d' /etc/apt/sources.list
     - if [[ "${LIVE_USE_SFTP}" == "false" ]]; then
-##        use NCFTPPUT if using FTP
+##        use NCFTPPUT, basically a fancy FTP upload tool
+##        update apt packages and install ncftp
     -     apt-get update -yqq && apt-get install -y -qq ncftp;
+##        just to make sure =)
     -     chmod -R 777 build
+##        upload:
+##
+##                                                               remote directory (TODO: custom dir)
+##              verbose output                                     live server    │
+##           recursive │    live FTP user     live FTP password        │          │   local directory
+##                  │  │ ┌────────┴────────┐ ┌────────┴────────┐ ┌─────┴──────┐ ┌─┴─┐ ┌───┴───┐
     -     ncftpput -R -v -u ${LIVE_FTP_USER} -p ${LIVE_FTP_PASS} ${LIVE_SERVER} /html ./build/*
     - else
-##        use RSYNC if using SFTP
+##        use RSYNC for SSH
+##        update apt packages and install rsync
     -     apt-get update -yqq && apt-get install -y -qq ssh rsync
+##        upload:
+##
+##                 don't upload CSS maps                          remote directory (TODO: custom dir)
+##      suppress non-errors │                     live SSH user                    │
+##     recursive ┐│         │      local directory      │          live server     │
+##               ││ ┌───────┴───────┐ ┌───┴───┐ ┌───────┴───────┐ ┌─────┴──────┐ ┌─┴──┐
     -     rsync -rq --exclude="*.map" ./build/* ${LIVE_SFTP_USER}@${LIVE_SERVER}:/html/
     - fi
   environment:
+##  define environments
+##  TODO: Custom enviroments
     name: live
     url: http://localhost/
 
@@ -166,31 +236,49 @@ deploylive:
 jiratodemo:
   stage: transition
   only:
+##    Only deploy to demo if "dev" branch was updated
+##    TODO: Custom branches
     - dev
   dependencies:
+##    only run if deploy has succeeded
     - deploydemo
   script:
 ##    download JQ for JSON parsing in answers
+##    see: <https://github.com/stedolan/jq/>
     - echo 'Downloading JQ...'
     - curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > jq
-##    make it executable, and else, because why not
+##    make it executable, and else, because we're throwing it away afterwards
+##    and we don't want to deal with permission errors
     - echo 'Setting permissions...'
     - chmod 777 ./jq
 ##    query JIRA for:
 ##    * Project == project_id
 ##    * Status == demo_current_status
     - echo 'Getting results...'
+##    YML has a problem with some of the curl syntax if written after a single dash,
+##    so we multiline it, even if it's just a single line
+##    and since comments are not allowed inside the value, this time we explain from the bottom
     - |
       curl --user "${JIRA_USER}:${JIRA_PASS}" "${JIRA_URL}/rest/api/2/search?jql=status=${DEMO_CURRENT_STATUS}%20and%20project=${PROJECT_ID}&fields=key&maxResults=100" > results.json
+##         └───────────────┬────────────────┘ └──────────────┬──────────────┘    └─────────────┬─────────────┘         └─────────┬─────────┘ └───┬────┘ └─────┬──────┘
+##                use JIRA basic auth                query the JIRA API        for status = 'internally approved'      choose correct project    │    to prevent timeout
+##                                                                                                                                    only get the ticket keys
     - echo 'Got results.'
 ##    get the total number of results for the FOR loop
     - echo "Found $(cat results.json | ./jq -r '.total') tickets to be moved."
     - for (( VAR=0; VAR<$(cat results.json | ./jq -r '.total'); ++VAR )); do
+##                                               VAR is our loop variable
+##                                         in all issues    │       get the issue key
+##                                            ┌──┴──┐   ┌───┴───┐   ┌─┴┐
     - issue_key=$(cat results.json | ./jq -r ".issues | .[${VAR}] | .key")
     - echo "Issue key is ${issue_key}"
-##    transition all JIRA issues from the status to the next one, using auth and all that stuff
+##    YML has a problem with some of the curl syntax if written after a single dash,
+##    so we multiline it, even if it's just a single line
+##    also sorry for the line length
     - |
       curl --header "Content-Type: application/json" --request POST --user "${JIRA_USER}:${JIRA_PASS}" --data "{\"transition\": {\"id\": \"${DEMO_TRANSITION_ID}\"}}" ${JIRA_URL}/rest/api/2/issue/${issue_key}/transitions?expand=transitions.fields
+##                  └──────────────┬───────────────┘ └─────┬──────┘ └───────────────┬────────────────┘ └─────────────────────────────┬──────────────────────────────┘ └───────────────────┬───────────────────┘
+##        tell JIRA that we're sending JSON         use POST request       use JIRA basic auth               tell JIRA to run the transition to 'Live on Demo'              on the issue we just extracted
     - done
 
 ##
@@ -199,30 +287,45 @@ jiratodemo:
 jiratolive:
   stage: transition
   only:
+##    Only deploy to demo if "master" branch was updated
+##    TODO: Custom branches
     - master
   dependencies:
+##    only run if deploy has succeeded
     - deploylive
   script:
 ##    download JQ for JSON parsing in answers
+##    see: <https://github.com/stedolan/jq/>
     - echo 'Downloading JQ...'
     - curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > jq
-##    make it executable, and else, because why not
+##    make it executable, and else, because we're throwing it away afterwards
+##    and we don't want to deal with permission errors
     - echo 'Setting permissions...'
     - chmod 777 ./jq
 ##    query JIRA for:
 ##    * Project == project_id
-##    * Status == demo_current_status
+##    * Status == live_current_status
     - echo 'Getting results...'
+##    YML has a problem with some of the curl syntax if written after a single dash,
+##    so we multiline it, even if it's just a single line
+##    and since comments are not allowed inside the value, this time we explain from the bottom
     - |
       curl --user "${JIRA_USER}:${JIRA_PASS}" "${JIRA_URL}/rest/api/2/search?jql=status=${LIVE_CURRENT_STATUS}%20and%20project=${PROJECT_ID}&fields=key&maxResults=100" > results.json
+##         └───────────────┬────────────────┘ └──────────────┬──────────────┘    └─────────────┬─────────────┘         └─────────┬─────────┘ └───┬────┘ └─────┬──────┘
+##                use JIRA basic auth                query the JIRA API         for status = 'accepted on demo'        choose correct project    │    to prevent timeout
+##                                                                                                                                    only get the ticket keys
     - echo 'Got results.'
 ##    get the total number of results for the FOR loop
     - echo "Found $(cat results.json | ./jq -r '.total') tickets to be moved."
     - for (( VAR=0; VAR<$(cat results.json | ./jq -r '.total'); ++VAR )); do
-##    transition all JIRA issues from the status to the next one, using auth and all that stuff
+##                                               VAR is our loop variable
+##                                         in all issues    │       get the issue key
+##                                            ┌──┴──┐   ┌───┴───┐   ┌─┴┐
     - issue_key=$(cat results.json | ./jq -r ".issues | .[${VAR}] | .key")
     - echo "Issue key is ${issue_key}"
     - |
       curl --header "Content-Type: application/json" --request POST --user "${JIRA_USER}:${JIRA_PASS}" --data "{\"transition\": {\"id\": \"${LIVE_TRANSITION_ID}\"}}" ${JIRA_URL}/rest/api/2/issue/${issue_key}/transitions?expand=transitions.fields;
+##                  └──────────────┬───────────────┘ └─────┬──────┘ └───────────────┬────────────────┘ └─────────────────────────────┬──────────────────────────────┘ └───────────────────┬───────────────────┘
+##        tell JIRA that we're sending JSON         use POST request       use JIRA basic auth                   tell JIRA to run the transition to 'Live'                 on the issue we just extracted
     - done
     
