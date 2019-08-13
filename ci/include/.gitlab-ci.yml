@@ -60,11 +60,11 @@ before_script:
 ##    to the respective "Live" or "Live on demo" state
 
 stages:
-##  build
+    ## custom build stages
   - build
-##  deploydemo, deploylive
+    ## deploydemo, deploylive
   - deploy
-##  jiratodemo, jiratolive
+    ## jiratodemo, jiratolive
   - transition
 
 ##
@@ -73,19 +73,19 @@ stages:
 deploydemo:
   stage: deploy
   only:
-##    Only deploy to demo if "dev" branch was updated
-##    TODO: Custom branches
+      ##    Only deploy to demo if "dev" branch was updated
+      ##    TODO: Custom branches
     - dev
   dependencies:
-##    depends on both PostCSS and UglifyJS to complete
-##    don't want to upload broken files
+      ##    depends on both PostCSS and UglifyJS to complete
+      ##    don't want to upload broken files
     - postcss
     - uglifyjs
   script:
     - . ./scripts/deploydemo.sh
   environment:
-##  define environments
-##  TODO: Custom enviroments
+    ##  define environments
+    ##  TODO: Custom enviroments
     name: demo
     url: http://localhost/
 
@@ -95,19 +95,19 @@ deploydemo:
 deploylive:
   stage: deploy
   only:
-##    Only deploy to demo if "master" branch was updated
-##    TODO: Custom branches
+      ##    Only deploy to demo if "master" branch was updated
+      ##    TODO: Custom branches
     - master
   dependencies:
-##    depends on both PostCSS and UglifyJS to complete
-##    don't want to upload broken files
+      ## depends on both PostCSS and UglifyJS to complete
+      ## don't want to upload broken files
     - postcss
     - uglifyjs
   script:
     - . ./scripts/deploylive.sh
   environment:
-##  define environments
-##  TODO: Custom enviroments
+    ##  define environments
+    ##  TODO: Custom enviroments
     name: live
     url: http://localhost/
 
@@ -117,11 +117,11 @@ deploylive:
 jiratodemo:
   stage: transition
   only:
-##    Only deploy to demo if "dev" branch was updated
-##    TODO: Custom branches
+      ## Only deploy to demo if "dev" branch was updated
+      ## TODO: Custom branches
     - dev
   dependencies:
-##    only run if deploy has succeeded
+      ## only run if deploy has succeeded
     - deploydemo
   script:
     - . ./scripts/jiratodemo.sh
@@ -132,11 +132,11 @@ jiratodemo:
 jiratolive:
   stage: transition
   only:
-##    Only deploy to demo if "master" branch was updated
-##    TODO: Custom branches
+      ## Only deploy to demo if "master" branch was updated
+      ## TODO: Custom branches
     - master
   dependencies:
-##    only run if deploy has succeeded
+      ## only run if deploy has succeeded
     - deploylive
   script:
     - . ./scripts/jiratolive.sh
