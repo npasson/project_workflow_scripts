@@ -25,7 +25,7 @@
 # ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! ! #
 
 include:
-  - project: '' # TODO example: project: 'my-group/my-project'
+  - project: 'my-group/my-project' # TODO: git repository of template file
     file: '.gitlab-ci.template.yml'
 
 deploy_demo:
