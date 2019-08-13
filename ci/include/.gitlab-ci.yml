@@ -21,24 +21,24 @@
 
 # define variables
 variables:
-  PROJECT_ID: ""
-  DEMO_SERVER: ""
-  DEMO_USE_SFTP: ""
-  DEMO_FTP_USER: ""
-  DEMO_FTP_PASS: ""
-  DEMO_SFTP_USER: ""
-  DEMO_CURRENT_STATUS: ""
-  DEMO_TRANSITION_ID: ""
-  LIVE_USE_SFTP: ""
-  LIVE_FTP_USER: ""
-  LIVE_FTP_PASS: ""
-  LIVE_SFTP_USER: ""
-  LIVE_SERVER: ""
-  LIVE_CURRENT_STATUS: ""
-  LIVE_TRANSITION_ID: ""
-  JIRA_URL: ""
-  JIRA_USER: ""
-  JIRA_PASS: ""
+  PROJECT_ID: ""           # JIRA project ID
+  DEMO_SERVER: ""          # demo server URL
+  DEMO_USE_SFTP: ""        # true/false, use SFTP or FTP?
+  DEMO_FTP_USER: ""        # FTP user if FTP
+  DEMO_FTP_PASS: ""        # FTP pass if FTP
+  DEMO_SFTP_USER: ""       # SFTP user if SFTP
+  DEMO_CURRENT_STATUS: ""  # 'Internally accepted' JIRA status ID
+  DEMO_TRANSITION_ID: ""   # JIRA transition ID to 'Live on Demo'
+  LIVE_USE_SFTP: ""        # live server URL
+  LIVE_FTP_USER: ""        # true/false, use SFTP or FTP?
+  LIVE_FTP_PASS: ""        # FTP user if FTP
+  LIVE_SFTP_USER: ""       # FTP pass if FTP
+  LIVE_SERVER: ""          # SFTP user if SFTP
+  LIVE_CURRENT_STATUS: ""  # 'Accepted on demo' JIRA status ID
+  LIVE_TRANSITION_ID: ""   # JIRA transition ID to 'Live'
+  JIRA_URL: ""             # JIRA REST URL
+  JIRA_USER: ""            # JIRA helper username
+  JIRA_PASS: ""            # JIRA helper password
 
 image: ubuntu
 
