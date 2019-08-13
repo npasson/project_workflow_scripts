@@ -55,6 +55,7 @@ deploy_live:
 ## You can also dupliate this whole step, just remember to rename it.
 build_stage_name:
   stage: build
+  image: node:8
   script:
 ##    install PostCSS from NPM
     - npm i -g postcss-cli
