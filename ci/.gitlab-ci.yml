@@ -28,16 +28,16 @@ include:
   - project: '' # TODO example: project: 'my-group/my-project'
     file: '.gitlab-ci.template.yml'
 
-.deploy_demo:
-  extends: .deploy-template
+deploy_demo:
+  extends: .deploy_demo_template
   only:
     - master
   environment:
     name: 'Live-Server'
     url: 'http://example.com'
 
-.deploy_live:
-  extends: .deploy-template
+deploy_live:
+  extends: .deploy_live_template
   only:
     - dev
   environment:

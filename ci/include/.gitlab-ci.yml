@@ -66,49 +66,21 @@ stages:
     ## jiratodemo, jiratolive
   - transition
 
-##
-## Deploy to demo if branch is 'dev'
-##
-deploydemo:
+## Deploy to demo
+.deploy_demo_template:
   stage: deploy
   only:
-      ##    Only deploy to demo if "dev" branch was updated
-      ##    TODO: Custom branches
-    - dev
-  dependencies:
-      ##    depends on both PostCSS and UglifyJS to complete
-      ##    don't want to upload broken files
-    - postcss
-    - uglifyjs
+    - branches
   script:
     - . ./scripts/deploydemo.sh
-  environment:
-    ##  define environments
-    ##  TODO: Custom enviroments
-    name: demo
-    url: http://localhost/
 
-##
-## Deploy to live if branch is 'master'
-##
-deploylive:
+## Deploy to live
+.deploy_live_template:
   stage: deploy
   only:
-      ##    Only deploy to demo if "master" branch was updated
-      ##    TODO: Custom branches
-    - master
-  dependencies:
-      ## depends on both PostCSS and UglifyJS to complete
-      ## don't want to upload broken files
-    - postcss
-    - uglifyjs
+    - branches
   script:
     - . ./scripts/deploylive.sh
-  environment:
-    ##  define environments
-    ##  TODO: Custom enviroments
-    name: live
-    url: http://localhost/
 
 ##
 ## Move JIRA ticket to 'Live on Demo' if branch is 'dev' and upload succeeded
