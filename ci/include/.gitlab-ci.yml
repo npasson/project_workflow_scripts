@@ -19,8 +19,6 @@
 #                                                                                    #
 ######################################################################################
 
-image: node:8
-
 # define variables
 variables:
   PROJECT_ID: ""
@@ -42,7 +40,8 @@ variables:
   JIRA_USER: ""
   JIRA_PASS: ""
 
-# run validation checks and SSH setup
+image: ubuntu
+
 before_script:
   - sudo chmod -R 777 ./scripts
   - . ./scripts/before_script.sh
