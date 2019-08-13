@@ -29,11 +29,11 @@ variables:
   DEMO_SFTP_USER: ""       # SFTP user if SFTP
   DEMO_CURRENT_STATUS: ""  # 'Internally accepted' JIRA status ID
   DEMO_TRANSITION_ID: ""   # JIRA transition ID to 'Live on Demo'
-  LIVE_USE_SFTP: ""        # live server URL
-  LIVE_FTP_USER: ""        # true/false, use SFTP or FTP?
-  LIVE_FTP_PASS: ""        # FTP user if FTP
-  LIVE_SFTP_USER: ""       # FTP pass if FTP
-  LIVE_SERVER: ""          # SFTP user if SFTP
+  LIVE_SERVER: ""          # live server URL
+  LIVE_USE_SFTP: ""        # true/false, use SFTP or FTP?
+  LIVE_FTP_USER: ""        # FTP user if FTP
+  LIVE_FTP_PASS: ""        # FTP pass if FTP
+  LIVE_SFTP_USER: ""       # SFTP user if SFTP
   LIVE_CURRENT_STATUS: ""  # 'Accepted on demo' JIRA status ID
   LIVE_TRANSITION_ID: ""   # JIRA transition ID to 'Live'
   JIRA_URL: ""             # JIRA REST URL
@@ -59,11 +59,11 @@ before_script:
 ##    to the respective "Live" or "Live on demo" state
 
 stages:
-    ## custom build stages
+  ## custom build stages
   - build
-    ## deploydemo, deploylive
+  ## deploydemo, deploylive
   - deploy
-    ## jiratodemo, jiratolive
+  ## jiratodemo, jiratolive
   - transition
 
 ## Deploy to demo
@@ -88,11 +88,11 @@ stages:
 jiratodemo:
   stage: transition
   only:
-      ## Only deploy to demo if "dev" branch was updated
-      ## TODO: Custom branches
+    ## Only deploy to demo if "dev" branch was updated
+    ## TODO: Custom branches
     - dev
   dependencies:
-      ## only run if deploy has succeeded
+    ## only run if deploy has succeeded
     - deploydemo
   script:
     - . ./scripts/jiratodemo.sh
@@ -103,11 +103,11 @@ jiratodemo:
 jiratolive:
   stage: transition
   only:
-      ## Only deploy to demo if "master" branch was updated
-      ## TODO: Custom branches
+    ## Only deploy to demo if "master" branch was updated
+    ## TODO: Custom branches
     - master
   dependencies:
-      ## only run if deploy has succeeded
+    ## only run if deploy has succeeded
     - deploylive
   script:
     - . ./scripts/jiratolive.sh
