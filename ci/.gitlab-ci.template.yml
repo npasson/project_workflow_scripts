@@ -298,26 +298,3 @@ jiratolive:
 ##                  └──────────────┬───────────────┘ └─────┬──────┘ └───────────────┬────────────────┘ └─────────────────────────────┬──────────────────────────────┘ └───────────────────┬───────────────────┘
 ##        tell JIRA that we're sending JSON         use POST request       use JIRA basic auth                   tell JIRA to run the transition to 'Live'                 on the issue we just extracted
     - done
-
-############################################################################################################
-## EDIT BELOW THIS LINE! ###################################################################################
-############################################################################################################
-
-##
-## This is an example step for the Gitlab CI build stage.
-## You can modify everything here, except the 'stage: build' line.
-## You can also dupliate this whole step, just remember to rename it.
-build_stage_name:
-  stage: build
-  script:
-##    install PostCSS from NPM
-    - npm i -g postcss-cli
-##    install CSSNano to minify CSS
-    - npm install cssnano
-##    compile postcss
-    - cat ./src/css/* | postcss --no-map > ./build/src/css/main.css
-  artifacts:
-    paths:
-##      make sure we transfer the CSS file over to the deploy stage
-      - build/src/css/main.css
-    expire_in: 1 day
