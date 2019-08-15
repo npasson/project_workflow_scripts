@@ -67,7 +67,7 @@ stages:
   - transition
 
 ## Deploy to demo
-.deploy_demo_template:
+.deploy_demo:
   stage: deploy
   only:
     - branches
@@ -75,7 +75,7 @@ stages:
     - . ./scripts/deploydemo.sh
 
 ## Deploy to live
-.deploy_live_template:
+.deploy_live:
   stage: deploy
   only:
     - branches
@@ -85,12 +85,8 @@ stages:
 ##
 ## Move JIRA ticket to 'Live on Demo' if branch is 'dev' and upload succeeded
 ##
-jiratodemo:
+.jira_demo:
   stage: transition
-  only:
-    ## Only deploy to demo if "dev" branch was updated
-    ## TODO: Custom branches
-    - dev
   dependencies:
     ## only run if deploy has succeeded
     - deploydemo
@@ -100,12 +96,8 @@ jiratodemo:
 ##
 ## Move JIRA ticket to 'Live on Demo' if branch is 'dev' and upload succeeded
 ##
-jiratolive:
+jira_live:
   stage: transition
-  only:
-    ## Only deploy to demo if "master" branch was updated
-    ## TODO: Custom branches
-    - master
   dependencies:
     ## only run if deploy has succeeded
     - deploylive

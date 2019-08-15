@@ -28,8 +28,18 @@ include:
   - project: 'my-group/my-project' # TODO: git repository of template file
     file: '.gitlab-ci.template.yml'
 
+jira_demo:
+  extends: .jira_demo
+  only:
+    - dev
+
+jira_live:
+  extends: .jira_live
+  only:
+    - master
+
 deploy_demo:
-  extends: .deploy_demo_template
+  extends: .deploy_demo
   only:
     - master
   environment:
@@ -37,7 +47,7 @@ deploy_demo:
     url: 'http://example.com'
 
 deploy_live:
-  extends: .deploy_live_template
+  extends: .deploy_live
   only:
     - dev
   environment:
