@@ -21,175 +21,60 @@
  *
 \*==================================================================================*/
 
-require_once '../vars.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/rest/functions.php';
+
+use function scripts\general\_log;
 
 // ==================================================== //
 
-/**
- * Logs a message to the given file. Ends the message with a newline.
- *
- * @param string $msg The message to log.
- */
-function _log(string $msg): void {
-	file_put_contents('crucible.log', $msg . "\n", FILE_APPEND);
-}
-
-/**
- * Converts anything (usually an object) to an array.
- *
- * @param $obj mixed An object or an array, or anything. It just casts, make sure it's able to.
- *
- * @return array The given object, converted to an array.
- */
-function object_to_array($obj): array {
-	$array = (array)$obj;
-	foreach ($array as $sub => $attribute) {
-		if (is_array($attribute)) {
-			$array[$sub] = object_to_array($attribute);
-		}
-		if (!is_string($attribute)) {
-			$array[$sub] = (array)$attribute;
-		}
-	}
-	return $array;
-}
-
-/**
- * Gets the URL of the repository, given a project name (usually the JIRA key)
- *
- * @param string $name The Crucible project name. See {@link getRepoName()}
- *
- * @return string The Repo URL (really just the repo name, but it's a locator anyway)
- */
-function getRepoUrl(string $name): string {
-	$repoData = file_get_contents(CRUCIBLE_URL . "/rest-service/repositories-v1?name=$name");
-	_log('Received answer getting repository names:');
-	_log($repoData);
-	$repoDecoded = new SimpleXMLElement($repoData);
-	$repoArray = object_to_array($repoDecoded);
-	$repoUrl = preg_filter('/^.+\/(.+)\.git$/', '$1', $repoArray['repoData']['location']);
-	if ($repoUrl === NULL) {
-		_log("No repositories with name $name found");
-		header("HTTP/1.0 400 Bad Request: No repositories with name $name found");
-		exit(400);
-	}
-
-	return $repoUrl;
-}
-
-/**
- * Gets the repository name as saved by Crucible.
- *
- * @return string The repo name.
- */
-function getRepoName(): string {
-	$decoded = json_decode(POST_PAYLOAD, true);
-	/*
-	 * THIS IS A BUG IN THE CRUCIBLE REST SERVICE.
-	 * The REST documentation states:
-	 * "filter repositories by the repository key"
-	 * THIS IS WRONG.
-	 * The $name attribute filters by DISPLAY NAME, not KEY.
-	 * Try it yourself:
-	 * http://crucible.location/rest-service/repositories-v1?name=typehere
-	 * Therefore we need to return displayName instead of name here.
-	 */
-	return $decoded['repository']['displayName'];
-}
-
-/**
- * Gets the name of the branch that was changed.
- *
- * @return string The name of the branch.
- */
-function getBranchName(): string {
-	$decoded = json_decode(POST_PAYLOAD, true);
-	return $decoded['changeset']['branches'][0];
-}
-
-/**
- * Gets the comment of the commit.
- *
- * @return string The comment.
- */
-function getComment(): string {
-	$decoded = json_decode(POST_PAYLOAD, true);
-	return $decoded['changeset']['comment'];
-}
-
-/**
- * Creates a merge request in the given project, from the branch $from to the branch $to.
- *
- * @param string $repo_key The key of the affected repository. See {@link get_repo_key()} and
- *                         {@link REPOSITORY_GROUP_PREFIX}.
- * @param string $from The source branch to merge from.
- * @param string $to The target branch to merge to.
- */
-function create_mr(string $repo_key, string $from, string $to): void {
-	$url_prefix = GITLAB_URL . '/api/v4/projects/' . urlencode($repo_key) . '/merge_requests?private_token=';
-	$url_suffix =
-		"&source_branch=$from" .
-		"&target_branch=$to" .
-		'&title=' . getBranchName() .
-		'&remove_source_branch=false'
-	;
-
-	_log('Calling ' . $url_prefix . 'XXXXX' . $url_suffix . '...');
-
-	$url = $url_prefix . GITLAB_TOKEN . $url_suffix;
-
-	$connection = curl_init();
-	curl_setopt($connection, CURLOPT_URL, $url);
-	curl_setopt($connection, CURLOPT_POST, true);
-	curl_setopt($connection, CURLOPT_RETURNTRANSFER, 1);
-	$response = curl_exec($connection);
-	curl_close($connection);
-
-	_log('Received answer from Gitlab:');
-	_log($response);
-}
 
 // ==================================================== //
 
-_log('Called at ' . date('c'));
+function crucible() {
+	_log( 'Called at ' . date( 'c' ) );
 
-if (empty(POST_PAYLOAD)) {
-	_log('POST payload empty. Exiting.');
-	exit(1);
+	if ( empty( POST_PAYLOAD ) ) {
+		_log( 'POST payload empty. Exiting.' );
+		exit( 1 );
+	}
+
+	_log( 'POST payload received:' );
+	_log( POST_PAYLOAD );
+
+	_log( 'Checking for comment...' );
+	$comment = scripts\crucible\decode_payload\getComment();
+	$action  = preg_filter( REGEX_COMMAND_FROM_COMMENT, '$1', $comment );
+	if ( $action === null ) {
+		_log( 'Response is empty. Exiting.' );
+		exit( 1 );
+	}
+
+	// XXX DO NOT COMPARE THESE STRINGS DIRECTLY.
+	// Why? I do not know. (probably invisible characters)
+	// The line below works, don't touch it.
+	if ( strpos( $action, CODE_DONE_COMMAND ) !== 0 ) {
+		_log( "Didn't match filter, exiting." );
+		_log( "Action was: $action" );
+		exit( 1 );
+	}
+
+	_log( 'Getting repo and branch name...' );
+	$repo_name   = scripts\crucible\decode_payload\getRepoName();
+	$branch_name = scripts\crucible\decode_payload\getBranchName();
+	_log( 'Got repo name: ' . $repo_name );
+	_log( 'Got branch name: ' . $branch_name );
+
+	_log( 'Getting repo URL...' );
+	$repo_url = scripts\crucible\curl\getRepoUrl( $repo_name );
+	_log( 'Got repo URL: ' . $repo_url );
+
+	_log( 'Getting repo ID...' );
+	$repo_id = scripts\gitlab\curl\getProjectIdByName( $repo_url );
+	_log( "Repo ID: ${repo_id}" );
+
+	_log( 'Creating merge request...' );
+	scripts\gitlab\curl\create_mr( $repo_id, $branch_name, 'dev' );
+	_log( 'Created merge request. Exiting.' );
 }
 
-_log('POST payload received:');
-_log(POST_PAYLOAD);
-
-_log('Checking for comment...');
-$comment = getComment();
-$action = preg_filter(REGEX_COMMAND_FROM_COMMENT, '$1', $comment);
-if ($action === NULL) {
-	_log('Response is empty. Exiting.');
-	exit(1);
-}
-
-// XXX DO NOT COMPARE THESE STRINGS DIRECTLY.
-// Why? I do not know. (probably invisible characters)
-// The line below works, don't touch it.
-if(strpos($action, CODE_DONE_COMMAND) !== 0) {
-	_log('Didn\'t match filter, exiting.');
-	_log("Action was: $action");
-	exit(1);
-}
-
-_log('Getting repo name...');
-$repo_name = getRepoName();
-_log('Got repo name: ' . $repo_name);
-
-_log('Getting repo URL...');
-$repo_url = getRepoUrl($repo_name);
-_log('Got repo URL: ' . $repo_url);
-
-_log('Getting branch name...');
-$branch_name = getBranchName();
-_log('Got branch name: ' . $branch_name);
-
-_log('Creating merge request...');
-create_mr(REPOSITORY_GROUP_PREFIX . $repo_url, $branch_name, 'dev');
-_log('Created merge request. Exiting.');
+crucible();

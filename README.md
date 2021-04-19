@@ -1,7 +1,5 @@
 # Project Workflow
 
-**These files are in the early access stage.  A proper README, including a manual, will follow soon.**
-
 This collection of files is the product of my work to combine JIRA, Crucible, Gitlab and a web server into an automated workflow. They introduce automated branch creations, tickets that update their status on their own, merge request creation and tracking, and automated deployment on development and live servers.
 
 ## Files
