@@ -1,0 +1,105 @@
+######################################################################################
+#                                                                                    #
+#   Project Workflow Scripts                                                         #
+#   Copyright (C) 2019  Nicholas Passon                                              #
+#   Documentation: Coming Soon                                                       #
+#                                                                                    #
+#   This program is free software: you can redistribute it and/or modify             #
+#   it under the terms of the GNU Affero General Public License as published         #
+#   by the Free Software Foundation, either version 3 of the License, or             #
+#   (at your option) any later version.                                              #
+#                                                                                    #
+#   This program is distributed in the hope that it will be useful,                  #
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of                   #
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the                    #
+#   GNU Affero General Public License for more details.                              #
+#                                                                                    #
+#   You should have received a copy of the GNU Affero General Public License         #
+#   along with this program.  If not, see <http://www.gnu.org/licenses/>.            #
+#                                                                                    #
+######################################################################################
+
+# define variables
+variables:
+  PROJECT_ID: ""           # JIRA project ID
+  DEMO_SERVER: ""          # demo server URL
+  DEMO_USE_SFTP: ""        # true/false, use SFTP or FTP?
+  DEMO_FTP_USER: ""        # FTP user if FTP
+  DEMO_FTP_PASS: ""        # FTP pass if FTP
+  DEMO_SFTP_USER: ""       # SFTP user if SFTP
+  DEMO_CURRENT_STATUS: ""  # 'Internally accepted' JIRA status ID
+  DEMO_TRANSITION_ID: ""   # JIRA transition ID to 'Live on Demo'
+  LIVE_SERVER: ""          # live server URL
+  LIVE_USE_SFTP: ""        # true/false, use SFTP or FTP?
+  LIVE_FTP_USER: ""        # FTP user if FTP
+  LIVE_FTP_PASS: ""        # FTP pass if FTP
+  LIVE_SFTP_USER: ""       # SFTP user if SFTP
+  LIVE_CURRENT_STATUS: ""  # 'Accepted on demo' JIRA status ID
+  LIVE_TRANSITION_ID: ""   # JIRA transition ID to 'Live'
+  JIRA_URL: ""             # JIRA REST URL
+  JIRA_USER: ""            # JIRA helper username
+  JIRA_PASS: ""            # JIRA helper password
+
+image: ubuntu
+
+before_script:
+  - sudo chmod -R 777 ./scripts
+  - . ./scripts/before_script.sh
+
+## If everything goes well, the execution is as follows:
+## 1. build
+##    Compile files as needed. This step can be modified
+##    and added to as needed by the user.
+##
+## 2. deploydemo/deploylive, depending on updated branch
+##    Upload the /build folder to the respective server
+##
+## 3. jiratodemo/jiratolive
+##    Move all tickets currently in "to be uploaded" state
+##    to the respective "Live" or "Live on demo" state
+
+stages:
+  ## custom build stages
+  - build
+  ## deploydemo, deploylive
+  - deploy
+  ## jiratodemo, jiratolive
+  - transition
+
+## Deploy to demo
+.deploy_demo:
+  stage: deploy
+  only:
+    - branches
+  script:
+    - . ./scripts/deploydemo.sh
+
+## Deploy to live
+.deploy_live:
+  stage: deploy
+  only:
+    - branches
+  script:
+    - . ./scripts/deploylive.sh
+
+##
+## Move JIRA ticket to 'Live on Demo' if branch is 'dev' and upload succeeded
+##
+.jira_demo:
+  stage: transition
+  dependencies:
+    ## only run if deploy has succeeded
+    - deploydemo
+  script:
+    - . ./scripts/jiratodemo.sh
+
+##
+## Move JIRA ticket to 'Live on Demo' if branch is 'dev' and upload succeeded
+##
+jira_live:
+  stage: transition
+  dependencies:
+    ## only run if deploy has succeeded
+    - deploylive
+  script:
+    - . ./scripts/jiratolive.sh
