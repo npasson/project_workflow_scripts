@@ -7,11 +7,16 @@ This collection of files is the product of my work to combine JIRA, Crucible, Gi
 This list excludes meta files like README or LICENSE.
 
 ```
-├── ci
-│   └── gitlab-ci.yml - A Gitlab CI/CD pipelines file.
-│                       Calls a bunch of stuff and handles
-│                       upload to dev and live servers.
-│                       Rename to .gitlab-ci.yml.
+├── ci - CI files for GitLab.
+│   │
+│   ├── gitlab-ci.yml - A Gitlab CI/CD pipelines file.
+│   │                   Include this in your projects
+│   │                   to configure their settings.
+│   │
+│   └── include       - A different set of CI files that
+│                       act as a callable hub for single
+│                       projects. Needs to be set up as
+│                       a separate project in GitLab.
 │
 └── rest - Needs to be running on a web server.
     │      These files get called by webhooks, so make sure
