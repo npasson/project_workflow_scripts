@@ -3,7 +3,7 @@
 /*==================================================================================*\
  *
  *   Project Workflow Scripts
- *   Copyright (C) 2019  Nicholas Passon
+ *   Copyright (C) 2019 Nicholas Passon
  *   Documentation: Coming Soon
  *
  *   This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@
  *
 \*==================================================================================*/
 
-define('POST_PAYLOAD', file_get_contents('php://input'));
+define( 'POST_PAYLOAD', file_get_contents( 'php://input' ) );
 
 
 /* == URLs for service access == */
@@ -66,8 +66,12 @@ const REPOSITORY_GROUP_PREFIX = '/';
 /* == RegEx (you shouldn't need to change this) == */
 
 /** Gets the JIRA issue ID from the branch name */
-const REGEX_ISSUE_ID_FROM_BRANCH = '/^(?:[A-Za-z]+_)?([A-Za-z0-9-]+)$/';
+const REGEX_ISSUE_ID_FROM_BRANCH = '/^([A-Za-z-0-9]+)(?:_.*)?$/';
 /** Gets the JIRA command from the commit message */
 const REGEX_COMMAND_FROM_COMMENT = '/^[^ ]+ #([\w-]+)(?: .*)?$/';
 /** Gets the Git repo name from a Git URL */
-const REGEX_PATH_FROM_GIT_URL = '/^[^:]+:([^\.]+)(?:.git)?$/';
+const REGEX_PATH_FROM_GIT_URL = '~^.+/([^/\.]+)(?:.git)?$~';
+
+if ( !defined( 'JSON_THROW_ON_ERROR' ) ) {
+	define( 'JSON_THROW_ON_ERROR', 4194304 );
+}
